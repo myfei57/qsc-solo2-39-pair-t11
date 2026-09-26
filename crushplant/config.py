@@ -315,11 +315,17 @@ def validate(config: PlantConfig) -> None:
     if not config.lines:
         problems.append("no line is configured")
     seen: set[str] = set()
+    deck_lines: dict[str, list[str]] = {}
     for line in config.lines:
         where = f"line {line.unit}"
         if line.unit in seen:
             problems.append(f"{where} is configured twice")
         seen.add(line.unit)
+        deck_id = line.screen_deck_id.strip()
+        if not deck_id:
+            problems.append(f"{where} screen deck id is empty")
+        else:
+            deck_lines.setdefault(deck_id, []).append(line.unit)
         if line.feeder_min_tph >= line.feeder_max_tph:
             problems.append(f"{where} feeder band is empty")
         if not line.feeder_min_tph <= line.feeder_rated_tph <= line.feeder_max_tph:
@@ -348,6 +354,9 @@ def validate(config: PlantConfig) -> None:
             problems.append(f"{where} chute thresholds are inverted")
         if line.chute_hold_seconds <= 0 or line.chute_min_samples < 1:
             problems.append(f"{where} chute window is out of range")
+    for deck_id, units in deck_lines.items():
+        if len(units) > 1:
+            problems.append(f"screen deck {deck_id} is shared by {', '.join(units)}")
     safety = config.safety
     if safety.latch_hold_s < 0 or safety.magnet_recovery_hold_s < 0:
         problems.append("protective hold times must not be negative")

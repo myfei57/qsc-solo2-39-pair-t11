@@ -98,6 +98,8 @@ class IdIssuer:
             raise InvalidRequest("code belongs to another site", code=code, site=self.site)
         if parsed.kind not in KIND_TAGS.values():
             raise InvalidRequest("code kind is not issued here", code=code)
+        if parsed.text in self._codes:
+            raise NameConflict("that code is already registered", code=parsed.text)
         self._codes.append(parsed.text)
         return parsed.text
 
