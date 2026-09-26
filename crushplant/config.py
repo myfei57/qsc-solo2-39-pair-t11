@@ -315,11 +315,19 @@ def validate(config: PlantConfig) -> None:
     if not config.lines:
         problems.append("no line is configured")
     seen: set[str] = set()
+    decks: dict[str, str] = {}
     for line in config.lines:
         where = f"line {line.unit}"
         if line.unit in seen:
             problems.append(f"{where} is configured twice")
         seen.add(line.unit)
+        deck = line.screen_deck_id.strip()
+        if not deck:
+            problems.append(f"{where} screen deck id is empty")
+        elif deck in decks:
+            problems.append(f"screen deck id {deck} is shared by lines {decks[deck]} and {line.unit}")
+        else:
+            decks[deck] = line.unit
         if line.feeder_min_tph >= line.feeder_max_tph:
             problems.append(f"{where} feeder band is empty")
         if not line.feeder_min_tph <= line.feeder_rated_tph <= line.feeder_max_tph:

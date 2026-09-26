@@ -72,7 +72,7 @@ def parse_code(text: str) -> TagCode:
 
 
 class IdIssuer:
-    """Issues sequential identifiers per kind and refuses foreign ones."""
+    """Issues sequential identifiers per kind and refuses foreign or repeated ones."""
 
     def __init__(self, site: str) -> None:
         self.site = site_code(site)
@@ -86,23 +86,37 @@ class IdIssuer:
 
     def issue(self, kind: str, moment: datetime) -> str:
         tag = self._tag(kind)
-        code = f"{self.site}-{tag}-{moment.strftime('%Y%m%d')}-{len(self._codes) + 1:04d}"
+        day = moment.strftime("%Y%m%d")
+        serial = len(self._codes) + 1
+        code = f"{self.site}-{tag}-{day}-{serial:04d}"
+        while code in self._codes:
+            serial += 1
+            code = f"{self.site}-{tag}-{day}-{serial:04d}"
         self._codes.append(code)
         return code
 
     def register(self, code: str) -> str:
-        """Adopt an external code after checking it belongs to this site."""
+        """Adopt an external code after checking it belongs to this site and is new."""
 
         parsed = parse_code(code)
         if parsed.site != self.site:
             raise InvalidRequest("code belongs to another site", code=code, site=self.site)
         if parsed.kind not in KIND_TAGS.values():
             raise InvalidRequest("code kind is not issued here", code=code)
+        if parsed.text in self._codes:
+            raise NameConflict("that code is already registered", code=parsed.text)
         self._codes.append(parsed.text)
         return parsed.text
 
     def all_codes(self) -> list[str]:
         return list(self._codes)
+
+    def issued(self, kind: str) -> list[str]:
+        tag = self._tag(kind)
+        return [code for code in self._codes if f"-{tag}-" in code]
+
+    def codes_by_kind(self) -> dict[str, list[str]]:
+        return {kind: self.issued(kind) for kind in ISSUABLE_KINDS}
 
     def counts(self) -> dict[str, int]:
         counts: dict[str, int] = {}
